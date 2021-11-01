@@ -1,34 +1,83 @@
-import React,{useEffect,useState} from 'react';
+
+import React from 'react';
 import ReactDOM from 'react-dom';
-let lastRef;
-function useRef(value){
-  lastRef = lastRef||{current:value};
-  return lastRef;
+
+let stack = [];
+let index = -1;
+
+function useState(initVlaue){
+  const currentIndex =  ++index;
+  stack[currentIndex] = stack[currentIndex] || initVlaue;
+  function setCurrentValue(value){
+    stack[currentIndex] = value;
+    render()
+    index = -1;
+  }
+  return [stack[currentIndex],setCurrentValue];
 }
-let myLast ;
-function Counter() {
-  const [count, setCount] = useState(0);
-  const latestCount = useRef(count);//{current:null}
-  console.log(myLast===latestCount);
-  myLast=latestCount
-  useEffect(() => {
-    latestCount.current = count;
-    setTimeout(() => {
-      //console.log(`You clicked ${count} times`);
-      console.log(`You clicked ${latestCount.current} times`);
-    }, 1000);
-  });
-  return (
+
+function useRef(initVal){
+  return {current:initVal}
+}
+
+function useImperativeHandle(ref,fn,dependencies){
+  const currentIndex =  ++index;
+  if(stack[currentIndex]){
+    const [oldObj,oldDependencies] = stack[currentIndex];
+    let tag = false;
+    if(dependencies instanceof Array){
+      tag = dependencies.every((item,index)=>item===oldDependencies[index])
+    }
+    if(tag){
+      ref.current = oldObj;
+      stack[currentIndex] = [oldObj,oldDependencies]
+    }else{
+      const newObj = fn();
+      ref.current = newObj;
+      stack[currentIndex] = [newObj,dependencies]
+    }
+  }else{
+    const obj = fn();
+    ref.current = obj;
+    stack[currentIndex] = [obj,dependencies]
+  }
+}
+
+function Chilren(props,ref){
+  const myRef = useRef();
+  // ref.current = {
+  //   setRed:()=> myRef.current.style.backgroundColor = 'red',
+  //   setYellow:()=> myRef.current.style.backgroundColor = 'yellow',
+  // }
+  useImperativeHandle(ref,()=>({
+    setRed:()=> myRef.current.style.backgroundColor = 'red',
+    setYellow:()=> myRef.current.style.backgroundColor = 'yellow',
+  }),[])
+
+  return(
+    <div style={{width:"100px",height:"100px",backgroundColor:'black'}} ref={myRef}/>
+  )
+}
+
+const NewChilren = React.forwardRef(Chilren)
+
+function Index(){
+  const myRef = useRef();
+
+  return(
     <div>
-      <p>{count}</p>
-      <button onClick={()=>setCount(count+1)}>+</button>
+      <NewChilren ref={myRef}/>
+      <button onClick={()=>myRef.current.setRed()}>红色</button>
+      <button onClick={()=>myRef.current.setYellow()}>黄色</button>
     </div>
   )
 }
+
 function render(){
   ReactDOM.render(
-    <Counter/>,
-    document.getElementById('root')
-  );
+    <Index/>,
+    document.getElementById("root")
+  )
 }
+
 render();
